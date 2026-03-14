@@ -87,7 +87,24 @@ export default function PhysioSystem() {
   async function generateSummary(appt) {
     setLoadingId(appt.id)
     try {
-      const res = await fetch('/api/summary', {
+      const apiKey = 'AIzaSyBlug63an9TkmJ5x28u9xDFOiqwPJE-58s'
+      const prompt = `Write a short professional physiotherapy session summary for patient ${appt.patientName}. Notes: ${appt.notes}. Pain went from ${appt.painBefore} to ${appt.painAfter} out of 10. Date: ${appt.date}. Type: ${appt.type}.`
+
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }]
+        })
+      })
+      const data = await res.json()
+      const summary = data?.candidates?.[0]?.content?.parts?.[0]?.text
+      updateAppt(appt.id, 'summary', summary || 'No summary returned: ' + JSON.stringify(data))
+    } catch (err) {
+      updateAppt(appt.id, 'summary', 'Error: ' + err.message)
+    }
+    setLoadingId(null)
+  }
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
