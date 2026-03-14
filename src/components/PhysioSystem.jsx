@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { Users, Calendar, Activity, BookOpen, BarChart2, LogOut, Plus, Search, Phone, Mail, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
+const GEMINI_KEY = 'AIzaSyBlug63an9TkmJ5x28u9xDFOiqwPJE-58s'
+
 const initialExercises = [
-  { id: 1, name: 'Knee Flexion', condition: 'Knee Pain', difficulty: 'Easy', description: 'Slowly bend and straighten the knee', youtube: 'https://www.youtube.com/embed/dQw4w9WgXcQ' },
+  { id: 1, name: 'Knee Flexion', condition: 'Knee Pain', difficulty: 'Easy', description: 'Slowly bend and straighten the knee', youtube: '' },
   { id: 2, name: 'Lower Back Stretch', condition: 'Back Pain', difficulty: 'Easy', description: 'Gentle stretch for lower back relief', youtube: '' },
   { id: 3, name: 'Shoulder Rotation', condition: 'Shoulder Pain', difficulty: 'Medium', description: 'Circular shoulder movements for mobility', youtube: '' },
 ]
@@ -25,17 +27,12 @@ export default function PhysioSystem() {
   const [search, setSearch] = useState('')
   const [expandedAppt, setExpandedAppt] = useState(null)
   const [loadingId, setLoadingId] = useState(null)
-
-  // Patient form
   const [newPatient, setNewPatient] = useState({ name: '', phone: '', email: '', age: '', condition: '', diagnosis: '' })
-  // Appointment form
   const [newAppt, setNewAppt] = useState({ patientId: '', date: '', type: 'Clinic' })
-  // Exercise form
   const [newExercise, setNewExercise] = useState({ name: '', condition: '', difficulty: 'Easy', description: '', youtube: '' })
 
   const filteredPatients = patients.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.phone.includes(search)
+    p.name.toLowerCase().includes(search.toLowerCase()) || p.phone.includes(search)
   )
 
   const stats = {
@@ -87,71 +84,34 @@ export default function PhysioSystem() {
   async function generateSummary(appt) {
     setLoadingId(appt.id)
     try {
-      const apiKey = 'AIzaSyBlug63an9TkmJ5x28u9xDFOiqwPJE-58s'
-      const prompt = `Write a short professional physiotherapy session summary for patient ${appt.patientName}. Notes: ${appt.notes}. Pain went from ${appt.painBefore} to ${appt.painAfter} out of 10. Date: ${appt.date}. Type: ${appt.type}.`
-
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      const prompt = 'Write a 100 word professional physiotherapy session summary for patient ' + appt.patientName + '. Session notes: ' + appt.notes + '. Pain score before: ' + appt.painBefore + '/10, after: ' + appt.painAfter + '/10. Date: ' + appt.date + '. Type: ' + appt.type + '.'
+      const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + GEMINI_KEY, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }]
-        })
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
       })
       const data = await res.json()
-      const summary = data?.candidates?.[0]?.content?.parts?.[0]?.text
-      updateAppt(appt.id, 'summary', summary || 'No summary returned: ' + JSON.stringify(data))
+      const summary = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text
+      updateAppt(appt.id, 'summary', summary || 'Response: ' + JSON.stringify(data))
     } catch (err) {
       updateAppt(appt.id, 'summary', 'Error: ' + err.message)
     }
     setLoadingId(null)
   }
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          patientName: appt.patientName,
-          notes: appt.notes,
-          painBefore: appt.painBefore,
-          painAfter: appt.painAfter,
-          type: appt.type,
-          date: appt.date,
-        })
-      })
-      const text = await res.text()
-      try {
-        const data = JSON.parse(text)
-        updateAppt(appt.id, 'summary', data.summary || 'No summary returned: ' + text)
-      } catch {
-        updateAppt(appt.id, 'summary', 'Raw response: ' + text)
-      }
-    } catch (err) {
-      updateAppt(appt.id, 'summary', 'Fetch error: ' + err.message)
-    }
-    setLoadingId(null)
-  }
 
   function sendWhatsApp(phone, name, date) {
-    const msg = encodeURIComponent(`Hi ${name}, your physiotherapy appointment is on ${date}. Please confirm your attendance.`)
-    window.open(`https://wa.me/${phone}?text=${msg}`, '_blank')
+    const msg = encodeURIComponent('Hi ' + name + ', your physiotherapy appointment is on ' + date + '. Please confirm your attendance.')
+    window.open('https://wa.me/' + phone + '?text=' + msg, '_blank')
   }
 
   function exportReport(patient) {
     const appts = appointments.filter(a => a.patientId === patient.id)
-    const html = `<html><body style="font-family:sans-serif;padding:20px">
-      <h1>Patient Report: ${patient.name}</h1>
-      <p>Condition: ${patient.condition} | Diagnosis: ${patient.diagnosis}</p>
-      <h2>Sessions (${appts.length})</h2>
-      ${appts.map(a => `<div style="border:1px solid #ccc;padding:10px;margin:10px 0">
-        <b>${a.date}</b> - ${a.type} - ${a.status}<br/>
-        Notes: ${a.notes || 'None'}<br/>
-        Pain: ${a.painBefore || '?'} → ${a.painAfter || '?'}<br/>
-        Summary: ${a.summary || 'None'}
-      </div>`).join('')}
-    </body></html>`
+    const html = '<html><body style="font-family:sans-serif;padding:20px"><h1>Patient Report: ' + patient.name + '</h1><p>Condition: ' + patient.condition + '</p>' + appts.map(a => '<div style="border:1px solid #ccc;padding:10px;margin:10px 0"><b>' + a.date + '</b> - ' + a.status + '<br/>Notes: ' + (a.notes || 'None') + '<br/>Pain: ' + (a.painBefore || '?') + ' to ' + (a.painAfter || '?') + '</div>').join('') + '</body></html>'
     const blob = new Blob([html], { type: 'text/html' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${patient.name}-report.html`
+    a.download = patient.name + '-report.html'
     a.click()
   }
 
@@ -163,14 +123,13 @@ export default function PhysioSystem() {
         <input className="w-full bg-slate-700 rounded-lg px-4 py-2 mb-3 text-white outline-none" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
         <input className="w-full bg-slate-700 rounded-lg px-4 py-2 mb-4 text-white outline-none" type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
         <button onClick={() => setIsLoggedIn(true)} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition">Login</button>
-        <p className="text-slate-500 text-xs text-center mt-3">Any email & password works for demo</p>
+        <p className="text-slate-500 text-xs text-center mt-3">Any email and password works for demo</p>
       </div>
     </div>
   )
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100">
-      {/* Sidebar */}
       <div className="fixed left-0 top-0 h-full w-16 bg-slate-800 flex flex-col items-center py-4 gap-4 z-10">
         {[
           { id: 'dashboard', icon: BarChart2 },
@@ -180,7 +139,7 @@ export default function PhysioSystem() {
           { id: 'reports', icon: Activity },
         ].map(({ id, icon: Icon }) => (
           <button key={id} onClick={() => setView(id)}
-            className={`p-3 rounded-xl transition ${view === id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-700'}`}>
+            className={'p-3 rounded-xl transition ' + (view === id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-700')}>
             <Icon size={20} />
           </button>
         ))}
@@ -189,10 +148,8 @@ export default function PhysioSystem() {
         </button>
       </div>
 
-      {/* Main Content */}
       <div className="ml-16 p-6">
 
-        {/* DASHBOARD */}
         {view === 'dashboard' && (
           <div>
             <h2 className="text-2xl font-bold mb-6">Dashboard</h2>
@@ -203,7 +160,7 @@ export default function PhysioSystem() {
                 { label: 'Upcoming', value: stats.upcoming, color: 'yellow' },
                 { label: 'Patients', value: stats.patients, color: 'purple' },
               ].map(({ label, value, color }) => (
-                <div key={label} className={`bg-slate-800 rounded-xl p-4 border-l-4 border-${color}-500`}>
+                <div key={label} className={'bg-slate-800 rounded-xl p-4 border-l-4 border-' + color + '-500'}>
                   <p className="text-slate-400 text-sm">{label}</p>
                   <p className="text-3xl font-bold">{value}</p>
                 </div>
@@ -224,7 +181,6 @@ export default function PhysioSystem() {
           </div>
         )}
 
-        {/* PATIENTS */}
         {view === 'patients' && (
           <div>
             <h2 className="text-2xl font-bold mb-4">Patients</h2>
@@ -234,7 +190,6 @@ export default function PhysioSystem() {
                 <input className="bg-transparent py-2 outline-none flex-1 text-white" placeholder="Search by name or phone..." value={search} onChange={e => setSearch(e.target.value)} />
               </div>
             </div>
-            {/* Add Patient Form */}
             <div className="bg-slate-800 rounded-xl p-4 mb-4 grid grid-cols-2 md:grid-cols-3 gap-3">
               <h3 className="col-span-full font-semibold text-blue-400">Add New Patient</h3>
               {['name', 'phone', 'email', 'age', 'condition', 'diagnosis'].map(field => (
@@ -245,7 +200,6 @@ export default function PhysioSystem() {
                 <Plus size={16} /> Add Patient
               </button>
             </div>
-            {/* Patient List */}
             <div className="grid gap-3">
               {filteredPatients.map(p => (
                 <div key={p.id} className="bg-slate-800 rounded-xl p-4 flex items-center justify-between">
@@ -267,11 +221,9 @@ export default function PhysioSystem() {
           </div>
         )}
 
-        {/* APPOINTMENTS */}
         {view === 'appointments' && (
           <div>
             <h2 className="text-2xl font-bold mb-4">Appointments</h2>
-            {/* Add Appointment */}
             <div className="bg-slate-800 rounded-xl p-4 mb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
               <h3 className="col-span-full font-semibold text-blue-400">Book Appointment</h3>
               <select className="bg-slate-700 rounded-lg px-3 py-2 text-white outline-none"
@@ -290,7 +242,6 @@ export default function PhysioSystem() {
                 <Plus size={16} /> Book Appointment
               </button>
             </div>
-            {/* Appointment List */}
             <div className="grid gap-3">
               {appointments.map(appt => (
                 <div key={appt.id} className="bg-slate-800 rounded-xl overflow-hidden">
@@ -300,7 +251,7 @@ export default function PhysioSystem() {
                       <p className="text-slate-400 text-sm">{appt.date} | {appt.type}</p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className={`text-xs px-2 py-1 rounded-full ${appt.status === 'Completed' ? 'bg-green-900 text-green-300' : appt.status === 'In Progress' ? 'bg-yellow-900 text-yellow-300' : 'bg-blue-900 text-blue-300'}`}>
+                      <span className={'text-xs px-2 py-1 rounded-full ' + (appt.status === 'Completed' ? 'bg-green-900 text-green-300' : appt.status === 'In Progress' ? 'bg-yellow-900 text-yellow-300' : 'bg-blue-900 text-blue-300')}>
                         {appt.status}
                       </span>
                       {expandedAppt === appt.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -328,7 +279,7 @@ export default function PhysioSystem() {
                           className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50">
                           {loadingId === appt.id ? 'Generating...' : 'AI Summary'}
                         </button>
-                        <button onClick={() => sendWhatsApp(patients.find(p => p.id === appt.patientId)?.phone, appt.patientName, appt.date)}
+                        <button onClick={() => sendWhatsApp(patients.find(p => p.id === appt.patientId) && patients.find(p => p.id === appt.patientId).phone, appt.patientName, appt.date)}
                           className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm font-semibold">
                           WhatsApp
                         </button>
@@ -347,7 +298,6 @@ export default function PhysioSystem() {
           </div>
         )}
 
-        {/* EXERCISES */}
         {view === 'exercises' && (
           <div>
             <h2 className="text-2xl font-bold mb-4">Exercise Library</h2>
@@ -371,7 +321,7 @@ export default function PhysioSystem() {
                 <div key={ex.id} className="bg-slate-800 rounded-xl p-4">
                   <div className="flex justify-between items-start mb-2">
                     <p className="font-semibold">{ex.name}</p>
-                    <span className={`text-xs px-2 py-1 rounded-full ${ex.difficulty === 'Easy' ? 'bg-green-900 text-green-300' : ex.difficulty === 'Medium' ? 'bg-yellow-900 text-yellow-300' : 'bg-red-900 text-red-300'}`}>
+                    <span className={'text-xs px-2 py-1 rounded-full ' + (ex.difficulty === 'Easy' ? 'bg-green-900 text-green-300' : ex.difficulty === 'Medium' ? 'bg-yellow-900 text-yellow-300' : 'bg-red-900 text-red-300')}>
                       {ex.difficulty}
                     </span>
                   </div>
@@ -384,14 +334,13 @@ export default function PhysioSystem() {
           </div>
         )}
 
-        {/* REPORTS */}
         {view === 'reports' && (
           <div>
             <h2 className="text-2xl font-bold mb-4">Reports</h2>
             <div className="grid gap-4">
               {patients.map(p => {
                 const patientAppts = appointments.filter(a => a.patientId === p.id)
-                const painData = patientAppts.filter(a => a.painBefore).map((a, i) => ({ session: `S${i + 1}`, before: parseInt(a.painBefore) || 0, after: parseInt(a.painAfter) || 0 }))
+                const painData = patientAppts.filter(a => a.painBefore).map((a, i) => ({ session: 'S' + (i + 1), before: parseInt(a.painBefore) || 0, after: parseInt(a.painAfter) || 0 }))
                 return (
                   <div key={p.id} className="bg-slate-800 rounded-xl p-4">
                     <div className="flex justify-between items-center mb-3">
