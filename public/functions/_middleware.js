@@ -7,48 +7,48 @@ export async function onRequest(context) {
       const apiKey = context.env.GEMINI_API_KEY
 
       if (!apiKey) {
-        return new Response(JSON.stringify({ summary: 'Error: GEMINI_API_KEY not found in environment.' }), {
+        return new Response(JSON.stringify({ summary: 'ERROR: No API key found in environment' }), {
           headers: { 'Content-Type': 'application/json' }
         })
       }
 
-      const prompt = `You are a professional physiotherapist. Write a SOAP format session summary for:
-Patient: ${body.patientName}
-Date: ${body.date}
-Type: ${body.type}
-Notes: ${body.notes}
-Pain before: ${body.painBefore}/10
-Pain after: ${body.painAfter}/10
+      const prompt = `Write a short 50 word physiotherapy session summary for patient ${body.patientName}. Notes: ${body.notes}. Pain went from ${body.painBefore} to ${body.painAfter} out of 10.`
 
-Write a professional 150-word clinical summary.`
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`
 
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      const res = await fetch(geminiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }]
+          contents: [{
+            parts: [{ text: prompt }]
+          }]
         })
       })
 
+      const responseText = await res.text()
+
       if (!res.ok) {
-        const err = await res.text()
-        return new Response(JSON.stringify({ summary: `API Error: ${err}` }), {
+        return new Response(JSON.stringify({ summary: 'Gemini API Error: ' + responseText }), {
           headers: { 'Content-Type': 'application/json' }
         })
       }
 
-      const data = await res.json()
-      const summary = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No summary returned.'
+      const data = JSON.parse(responseText)
+      const summary = data?.candidates?.[0]?.content?.parts?.[0]?.text
+
+      if (!summary) {
+        return new Response(JSON.stringify({ summary: 'No text in response: ' + responseText }), {
+          headers: { 'Content-Type': 'application/json' }
+        })
+      }
 
       return new Response(JSON.stringify({ summary }), {
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        }
+        headers: { 'Content-Type': 'application/json' }
       })
 
     } catch (err) {
-      return new Response(JSON.stringify({ summary: `Exception: ${err.message}` }), {
+      return new Response(JSON.stringify({ summary: 'Exception: ' + err.message }), {
         headers: { 'Content-Type': 'application/json' }
       })
     }
