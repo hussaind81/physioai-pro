@@ -84,7 +84,7 @@ export default function PhysioSystem() {
     setNewExercise({ name: '', condition: '', difficulty: 'Easy', description: '', youtube: '' })
   }
 
-  async function generateSummary(appt) {
+  aasync function generateSummary(appt) {
     setLoadingId(appt.id)
     try {
       const res = await fetch('/api/summary', {
@@ -99,10 +99,15 @@ export default function PhysioSystem() {
           date: appt.date,
         })
       })
-      const data = await res.json()
-      updateAppt(appt.id, 'summary', data.summary || 'Could not generate summary.')
-    } catch {
-      updateAppt(appt.id, 'summary', 'Error generating summary. Check API config.')
+      const text = await res.text()
+      try {
+        const data = JSON.parse(text)
+        updateAppt(appt.id, 'summary', data.summary || 'No summary returned: ' + text)
+      } catch {
+        updateAppt(appt.id, 'summary', 'Raw response: ' + text)
+      }
+    } catch (err) {
+      updateAppt(appt.id, 'summary', 'Fetch error: ' + err.message)
     }
     setLoadingId(null)
   }
