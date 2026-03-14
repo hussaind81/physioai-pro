@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Users, Calendar, Activity, BookOpen, BarChart2, LogOut, Plus, Search, Phone, Mail, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
-const GEMINI_KEY = 'AIzaSyBlug63an9TkmJ5x28u9xDFOiqwPJE-58s'
+const GEMINI_KEY = import.meta.env.VITE_GEMINI_KEY
 
 const initialExercises = [
   { id: 1, name: 'Knee Flexion', condition: 'Knee Pain', difficulty: 'Easy', description: 'Slowly bend and straighten the knee', youtube: '' },
