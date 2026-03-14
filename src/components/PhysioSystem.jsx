@@ -85,7 +85,7 @@ export default function PhysioSystem() {
     setLoadingId(appt.id)
     try {
       const prompt = 'Write a 100 word professional physiotherapy session summary for patient ' + appt.patientName + '. Session notes: ' + appt.notes + '. Pain score before: ' + appt.painBefore + '/10, after: ' + appt.painAfter + '/10. Date: ' + appt.date + '. Type: ' + appt.type + '.'
-      const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + GEMINI_KEY, {
+      const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + GEMINI_KEY, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
