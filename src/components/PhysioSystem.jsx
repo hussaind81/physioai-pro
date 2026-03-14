@@ -41,16 +41,23 @@ export default function PhysioSystem() {
     if (isLoggedIn) loadAll()
   }, [isLoggedIn])
 
-  async function loadAll() {
+ async function loadAll() {
     setLoading(true)
-    const [p, a, e] = await Promise.all([
-      api('/patients'),
-      api('/appointments'),
-      api('/exercises'),
-    ])
-    setPatients(Array.isArray(p) ? p.map(x => ({ ...x, assignedExercises: JSON.parse(x.assigned_exercises || '[]') })) : [])
-    setAppointments(Array.isArray(a) ? a.map(x => ({ ...x, soap: { s: x.soap_s || '', o: x.soap_o || '', a: x.soap_a || '', p: x.soap_p || '' } })) : [])
-    setExercises(Array.isArray(e) ? e : [])
+    try {
+      const [p, a, e] = await Promise.all([
+        api('/patients'),
+        api('/appointments'),
+        api('/exercises'),
+      ])
+      setPatients(Array.isArray(p) ? p.map(x => ({ ...x, assignedExercises: JSON.parse(x.assigned_exercises || '[]') })) : [])
+      setAppointments(Array.isArray(a) ? a.map(x => ({ ...x, soap: { s: x.soap_s || '', o: x.soap_o || '', a: x.soap_a || '', p: x.soap_p || '' } })) : [])
+      setExercises(Array.isArray(e) ? e : [])
+    } catch (err) {
+      console.error('Load error:', err)
+      setPatients([])
+      setAppointments([])
+      setExercises([])
+    }
     setLoading(false)
   }
 
