@@ -84,7 +84,7 @@ export default function PhysioSystem() {
     setNewExercise({ name: '', condition: '', difficulty: 'Easy', description: '', youtube: '' })
   }
 
-  aasync function generateSummary(appt) {
+  async function generateSummary(appt) {
     setLoadingId(appt.id)
     try {
       const res = await fetch('/api/summary', {
