@@ -14,6 +14,143 @@ async function api(path, method = 'GET', body = null) {
   return res.json()
 }
 
+function exportPDF(patient, appointments, exercises) {
+  const appts = appointments.filter(a => (a.patient_id || a.patientId) === patient.id)
+  const assignedEx = exercises.filter(e => {
+    try {
+      const ids = JSON.parse(patient.assigned_exercises || '[]')
+      return ids.includes(e.id)
+    } catch { return false }
+  })
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Patient Report - ${patient.name}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', sans-serif; background: #f8fafc; color: #1e293b; }
+  .header { background: linear-gradient(135deg, #0d9488, #0891b2); color: white; padding: 40px; border-radius: 0 0 30px 30px; }
+  .header h1 { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+  .header p { opacity: 0.85; font-size: 14px; }
+  .badge { display: inline-block; background: rgba(255,255,255,0.2); border-radius: 20px; padding: 4px 14px; font-size: 12px; margin-top: 10px; }
+  .content { padding: 30px; }
+  .card { background: white; border-radius: 16px; padding: 24px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); border-left: 5px solid #0d9488; }
+  .card h2 { font-size: 16px; font-weight: 700; color: #0d9488; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .card h2::before { content: ''; display: inline-block; width: 8px; height: 8px; background: #0d9488; border-radius: 50%; }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .info-item { background: #f0fdfa; border-radius: 10px; padding: 12px; }
+  .info-item .label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .info-item .value { font-size: 14px; font-weight: 600; color: #0f172a; }
+  .session { background: white; border-radius: 12px; padding: 20px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+  .session-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .session-date { font-weight: 700; color: #0d9488; font-size: 15px; }
+  .status { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .status.completed { background: #dcfce7; color: #16a34a; }
+  .status.scheduled { background: #dbeafe; color: #2563eb; }
+  .soap-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .soap-item { background: #f8fafc; border-radius: 8px; padding: 10px; }
+  .soap-label { font-size: 11px; font-weight: 700; color: #0d9488; margin-bottom: 4px; }
+  .soap-text { font-size: 13px; color: #475569; }
+  .pain-bar { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+  .pain-label { font-size: 12px; color: #64748b; width: 80px; }
+  .pain-track { flex: 1; background: #e2e8f0; border-radius: 10px; height: 8px; }
+  .pain-fill-before { background: linear-gradient(90deg, #ef4444, #f97316); border-radius: 10px; height: 8px; }
+  .pain-fill-after { background: linear-gradient(90deg, #0d9488, #06b6d4); border-radius: 10px; height: 8px; }
+  .exercise { background: #f0fdfa; border-radius: 10px; padding: 14px; margin-bottom: 10px; border: 1px solid #99f6e4; }
+  .exercise h4 { color: #0d9488; font-weight: 700; margin-bottom: 6px; }
+  .exercise-meta { display: flex; gap: 10px; margin-bottom: 6px; }
+  .exercise-tag { background: #0d9488; color: white; border-radius: 6px; padding: 2px 8px; font-size: 11px; }
+  .exercise p { font-size: 13px; color: #475569; }
+  .summary-box { background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border-radius: 10px; padding: 14px; margin-top: 10px; border: 1px solid #bae6fd; }
+  .summary-box p { font-size: 13px; color: #0c4a6e; line-height: 1.6; }
+  .footer { text-align: center; padding: 30px; color: #94a3b8; font-size: 12px; border-top: 1px solid #e2e8f0; margin-top: 20px; }
+  .footer strong { color: #0d9488; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🏥 PhysioAI Pro</h1>
+  <p>Patient Clinical Report</p>
+  <div class="badge">Generated: ${new Date().toLocaleDateString('en-AE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+</div>
+<div class="content">
+  <div class="card">
+    <h2>Patient Information</h2>
+    <div class="info-grid">
+      <div class="info-item"><div class="label">Full Name</div><div class="value">${patient.name}</div></div>
+      <div class="info-item"><div class="label">Age</div><div class="value">${patient.age || 'N/A'}</div></div>
+      <div class="info-item"><div class="label">Phone</div><div class="value">${patient.phone || 'N/A'}</div></div>
+      <div class="info-item"><div class="label">Email</div><div class="value">${patient.email || 'N/A'}</div></div>
+      <div class="info-item"><div class="label">Condition</div><div class="value">${patient.condition || 'N/A'}</div></div>
+      <div class="info-item"><div class="label">Diagnosis</div><div class="value">${patient.diagnosis || 'N/A'}</div></div>
+    </div>
+  </div>
+
+  ${assignedEx.length > 0 ? `
+  <div class="card">
+    <h2>Home Exercise Program</h2>
+    ${assignedEx.map(ex => `
+    <div class="exercise">
+      <h4>${ex.name}</h4>
+      <div class="exercise-meta">
+        <span class="exercise-tag">Sets: ${ex.sets}</span>
+        <span class="exercise-tag">Reps: ${ex.reps}</span>
+        <span class="exercise-tag">${ex.difficulty}</span>
+      </div>
+      <p>${ex.description}</p>
+    </div>`).join('')}
+  </div>` : ''}
+
+  <div class="card">
+    <h2>Session History (${appts.length} Sessions)</h2>
+    ${appts.length === 0 ? '<p style="color:#94a3b8">No sessions recorded yet.</p>' : appts.map(a => `
+    <div class="session">
+      <div class="session-header">
+        <div class="session-date">📅 ${a.date} ${a.time ? 'at ' + a.time : ''}</div>
+        <span class="status ${a.status === 'Completed' ? 'completed' : 'scheduled'}">${a.status}</span>
+      </div>
+      ${(a.pain_before || a.painBefore) ? `
+      <div class="pain-bar">
+        <span class="pain-label">Pain Before</span>
+        <div class="pain-track"><div class="pain-fill-before" style="width:${(parseInt(a.pain_before || a.painBefore) || 0) * 10}%"></div></div>
+        <span style="font-size:13px;font-weight:700;color:#ef4444">${a.pain_before || a.painBefore}/10</span>
+      </div>
+      <div class="pain-bar">
+        <span class="pain-label">Pain After</span>
+        <div class="pain-track"><div class="pain-fill-after" style="width:${(parseInt(a.pain_after || a.painAfter) || 0) * 10}%"></div></div>
+        <span style="font-size:13px;font-weight:700;color:#0d9488">${a.pain_after || a.painAfter}/10</span>
+      </div>` : ''}
+      ${(a.soap_s || a.soap_o || a.soap_a || a.soap_p) ? `
+      <div class="soap-grid">
+        ${a.soap_s ? `<div class="soap-item"><div class="soap-label">S - Subjective</div><div class="soap-text">${a.soap_s}</div></div>` : ''}
+        ${a.soap_o ? `<div class="soap-item"><div class="soap-label">O - Objective</div><div class="soap-text">${a.soap_o}</div></div>` : ''}
+        ${a.soap_a ? `<div class="soap-item"><div class="soap-label">A - Assessment</div><div class="soap-text">${a.soap_a}</div></div>` : ''}
+        ${a.soap_p ? `<div class="soap-item"><div class="soap-label">P - Plan</div><div class="soap-text">${a.soap_p}</div></div>` : ''}
+      </div>` : ''}
+      ${a.summary ? `<div class="summary-box"><p>🤖 <strong>AI Summary:</strong> ${a.summary}</p></div>` : ''}
+    </div>`).join('')}
+  </div>
+</div>
+<div class="footer">
+  <strong>PhysioAI Pro</strong> — Advanced Physiotherapy Clinic Management System<br/>
+  This report is confidential and intended for medical use only.
+</div>
+</body>
+</html>`
+
+  const blob = new Blob([html], { type: 'text/html' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = patient.name.replace(/ /g, '-') + '-report.html'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function PhysioSystem() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [loginUser, setLoginUser] = useState('')
@@ -28,6 +165,7 @@ export default function PhysioSystem() {
   const [search, setSearch] = useState('')
   const [expandedAppt, setExpandedAppt] = useState(null)
   const [loadingId, setLoadingId] = useState(null)
+  const [saveStatus, setSaveStatus] = useState({})
   const [newPatient, setNewPatient] = useState({ name: '', phone: '', email: '', age: '', condition: '', diagnosis: '' })
   const [newAppt, setNewAppt] = useState({ patientId: '', date: '', time: '09:00', type: 'Clinic' })
   const [newExercise, setNewExercise] = useState({ name: '', condition: '', difficulty: 'Easy', sets: 3, reps: 10, description: '', youtube: '' })
@@ -37,18 +175,12 @@ export default function PhysioSystem() {
   const year = calendarDate.getFullYear()
   const month = calendarDate.getMonth()
 
-  useEffect(() => {
-    if (isLoggedIn) loadAll()
-  }, [isLoggedIn])
+  useEffect(() => { if (isLoggedIn) loadAll() }, [isLoggedIn])
 
- async function loadAll() {
+  async function loadAll() {
     setLoading(true)
     try {
-      const [p, a, e] = await Promise.all([
-        api('/patients'),
-        api('/appointments'),
-        api('/exercises'),
-      ])
+      const [p, a, e] = await Promise.all([api('/patients'), api('/appointments'), api('/exercises')])
       setPatients(Array.isArray(p) ? p.map(x => ({ ...x, assignedExercises: JSON.parse(x.assigned_exercises || '[]') })) : [])
       setAppointments(Array.isArray(a) ? a.map(x => ({ ...x, soap: { s: x.soap_s || '', o: x.soap_o || '', a: x.soap_a || '', p: x.soap_p || '' } })) : [])
       setExercises(Array.isArray(e) ? e : [])
@@ -92,6 +224,7 @@ export default function PhysioSystem() {
   }
 
   async function saveAppt(appt) {
+    setSaveStatus(s => ({ ...s, [appt.id]: 'saving' }))
     await api('/appointments/' + appt.id, 'PUT', {
       status: appt.status,
       soap_s: appt.soap.s,
@@ -102,6 +235,8 @@ export default function PhysioSystem() {
       pain_after: appt.painAfter || appt.pain_after || '',
       summary: appt.summary || '',
     })
+    setSaveStatus(s => ({ ...s, [appt.id]: 'saved' }))
+    setTimeout(() => setSaveStatus(s => ({ ...s, [appt.id]: '' })), 2000)
   }
 
   function updateApptLocal(id, field, value) {
@@ -116,8 +251,8 @@ export default function PhysioSystem() {
     const patient = patients.find(p => p.id === patientId)
     const has = patient.assignedExercises.includes(exerciseId)
     const updated = has ? patient.assignedExercises.filter(e => e !== exerciseId) : [...patient.assignedExercises, exerciseId]
-    await api('/patients/' + patientId + '/exercises', 'PUT', { assigned_exercises: updated })
     setPatients(patients.map(p => p.id === patientId ? { ...p, assignedExercises: updated } : p))
+    await api('/patients/' + patientId, 'PUT', { assigned_exercises: updated })
   }
 
   async function addExercise() {
@@ -130,7 +265,7 @@ export default function PhysioSystem() {
   async function generateSummary(appt) {
     setLoadingId(appt.id)
     const data = await api('/summary', 'POST', {
-      patientName: appt.patientName,
+      patientName: appt.patient_name || appt.patientName,
       soap_s: appt.soap.s,
       soap_o: appt.soap.o,
       soap_a: appt.soap.a,
@@ -160,28 +295,9 @@ export default function PhysioSystem() {
       '*Instructions:*%0A' +
       '- Perform exercises daily unless advised otherwise%0A' +
       '- Stop if you feel sharp pain%0A' +
-      '- Contact us if you have any questions%0A%0A' +
       'Get well soon! 💪%0A' +
       'PhysioAI Pro Clinic'
     window.open('https://wa.me/' + patient.phone + '?text=' + msg, '_blank')
-  }
-
-  function exportReport(patient) {
-    const appts = appointments.filter(a => a.patient_id === patient.id || a.patientId === patient.id)
-    const html = '<html><body style="font-family:sans-serif;padding:20px"><h1>Patient Report: ' + patient.name + '</h1><p>Condition: ' + patient.condition + '</p>' +
-      appts.map(a => '<div style="border:1px solid #ccc;padding:10px;margin:10px 0"><b>' + a.date + ' ' + (a.time || '') + '</b> - ' + a.status +
-        '<br/>S: ' + (a.soap?.s || a.soap_s || '-') +
-        '<br/>O: ' + (a.soap?.o || a.soap_o || '-') +
-        '<br/>A: ' + (a.soap?.a || a.soap_a || '-') +
-        '<br/>P: ' + (a.soap?.p || a.soap_p || '-') +
-        '<br/>Pain: ' + (a.painBefore || a.pain_before || '?') + ' to ' + (a.painAfter || a.pain_after || '?') +
-        '</div>').join('') + '</body></html>'
-    const blob = new Blob([html], { type: 'text/html' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = patient.name + '-report.html'
-    a.click()
   }
 
   function getDaysInMonth(y, m) { return new Date(y, m + 1, 0).getDate() }
@@ -338,20 +454,23 @@ export default function PhysioSystem() {
                         <span className="flex items-center gap-1"><Mail size={12} />{p.email}</span>
                       </div>
                       <div className="mt-3">
-                        <p className="text-xs font-semibold text-gray-500 mb-2">Assigned Exercises:</p>
+                        <p className="text-xs font-semibold text-gray-500 mb-2">Assign Exercises (click to toggle):</p>
                         <div className="flex flex-wrap gap-2">
                           {exercises.map(ex => (
                             <button key={ex.id} onClick={() => togglePatientExercise(p.id, ex.id)}
-                              className={'text-xs px-2 py-1 rounded-full border transition ' + (p.assignedExercises.includes(ex.id) ? 'bg-teal-500 text-white border-teal-500' : 'bg-white text-gray-500 border-gray-200 hover:border-teal-300')}>
-                              {ex.name}
+                              className={'text-xs px-3 py-1 rounded-full border transition font-medium ' + (p.assignedExercises.includes(ex.id) ? 'bg-teal-500 text-white border-teal-500 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:border-teal-300 hover:text-teal-500')}>
+                              {p.assignedExercises.includes(ex.id) ? '✓ ' : '+ '}{ex.name}
                             </button>
                           ))}
                         </div>
+                        {p.assignedExercises.length > 0 && (
+                          <p className="text-xs text-teal-500 mt-2">{p.assignedExercises.length} exercise(s) assigned</p>
+                        )}
                       </div>
                     </div>
                     <div className="flex flex-col gap-2 ml-4">
                       <button onClick={() => shareExercisesWhatsApp(p)} className="text-xs bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg">WhatsApp</button>
-                      <button onClick={() => exportReport(p)} className="text-xs bg-teal-500 hover:bg-teal-600 text-white px-3 py-1 rounded-lg">Export</button>
+                      <button onClick={() => exportPDF(p, appointments, exercises)} className="text-xs bg-teal-500 hover:bg-teal-600 text-white px-3 py-1 rounded-lg">Export PDF</button>
                       <button onClick={() => deletePatient(p.id)} className="text-red-400 hover:text-red-500 p-1 flex items-center justify-center"><Trash2 size={16} /></button>
                     </div>
                   </div>
@@ -399,6 +518,8 @@ export default function PhysioSystem() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
+                      {saveStatus[appt.id] === 'saving' && <span className="text-xs text-yellow-500">Saving...</span>}
+                      {saveStatus[appt.id] === 'saved' && <span className="text-xs text-green-500">✓ Saved</span>}
                       <span className={'text-xs px-2 py-1 rounded-full ' + (appt.status === 'Completed' ? 'bg-green-100 text-green-700' : appt.status === 'In Progress' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700')}>
                         {appt.status}
                       </span>
@@ -447,6 +568,10 @@ export default function PhysioSystem() {
                           className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50">
                           {loadingId === appt.id ? 'Generating...' : 'AI Summary'}
                         </button>
+                        <button onClick={() => saveAppt(appt)}
+                          className="bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">
+                          Save Notes
+                        </button>
                         <button onClick={() => {
                           const patient = patients.find(p => p.id === (appt.patient_id || appt.patientId))
                           if (patient) {
@@ -454,7 +579,7 @@ export default function PhysioSystem() {
                             window.open('https://wa.me/' + patient.phone + '?text=' + encodeURIComponent(msg), '_blank')
                           }
                         }} className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">
-                          WhatsApp Reminder
+                          WhatsApp
                         </button>
                       </div>
                       {appt.summary && (
@@ -527,10 +652,10 @@ export default function PhysioSystem() {
             <div className="grid gap-4">
               {patients.map(p => {
                 const patientAppts = appointments.filter(a => (a.patient_id || a.patientId) === p.id)
-                const painData = patientAppts.filter(a => a.painBefore || a.pain_before).map((a, i) => ({
+                const painData = patientAppts.filter(a => a.pain_before || a.painBefore).map((a, i) => ({
                   session: 'S' + (i + 1),
-                  before: parseInt(a.painBefore || a.pain_before) || 0,
-                  after: parseInt(a.painAfter || a.pain_after) || 0
+                  before: parseInt(a.pain_before || a.painBefore) || 0,
+                  after: parseInt(a.pain_after || a.painAfter) || 0
                 }))
                 return (
                   <div key={p.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
@@ -541,7 +666,7 @@ export default function PhysioSystem() {
                       </div>
                       <div className="flex gap-2">
                         <button onClick={() => shareExercisesWhatsApp(p)} className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg text-xs">WhatsApp Program</button>
-                        <button onClick={() => exportReport(p)} className="bg-teal-500 hover:bg-teal-600 text-white px-3 py-1 rounded-lg text-sm">Export</button>
+                        <button onClick={() => exportPDF(p, appointments, exercises)} className="bg-teal-500 hover:bg-teal-600 text-white px-3 py-1 rounded-lg text-sm">Export PDF</button>
                       </div>
                     </div>
                     {painData.length > 0 ? (
@@ -556,7 +681,7 @@ export default function PhysioSystem() {
                         </LineChart>
                       </ResponsiveContainer>
                     ) : (
-                      <p className="text-gray-400 text-sm text-center py-4">No pain data yet</p>
+                      <p className="text-gray-400 text-sm text-center py-4">No pain data recorded yet</p>
                     )}
                   </div>
                 )
