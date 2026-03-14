@@ -1,0 +1,7 @@
+name = "physioai-pro"
+compatibility_date = "2024-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "physioai-db"
+database_id = "c1637adb-d425-4e1e-9045-a7db41ca89a2"
