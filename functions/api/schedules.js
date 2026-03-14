@@ -2,7 +2,7 @@ export async function onRequestGet(context) {
   const { DB } = context.env
   const headers = { 'Content-Type': 'application/json' }
   try {
-    const result = await DB.prepare('SELECT * FROM appointments ORDER BY date ASC, time ASC').all()
+    const result = await DB.prepare('SELECT * FROM exercise_schedules').all()
     return new Response(JSON.stringify(result.results), { headers })
   } catch (err) {
     return new Response(JSON.stringify({ error: err.message }), { status: 500, headers })
@@ -14,11 +14,12 @@ export async function onRequestPost(context) {
   const headers = { 'Content-Type': 'application/json' }
   try {
     const b = await context.request.json()
-    const result = await DB.prepare(
-      'INSERT INTO appointments (patient_id, patient_name, date, time, type, status, is_recurring, recurring_days) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-    ).bind(b.patientId, b.patientName, b.date, b.time || '09:00', b.type || 'Clinic', 'Scheduled', b.is_recurring || 0, b.recurring_days || '').run()
-    const appt = await DB.prepare('SELECT * FROM appointments WHERE id = ?').bind(result.meta.last_row_id).first()
-    return new Response(JSON.stringify(appt), { headers })
+    await DB.prepare('DELETE FROM exercise_schedules WHERE patient_id = ?').bind(b.patient_id).run()
+    for (const entry of b.schedule) {
+      await DB.prepare('INSERT INTO exercise_schedules (patient_id, exercise_id, day_of_week) VALUES (?, ?, ?)')
+        .bind(b.patient_id, entry.exercise_id, entry.day).run()
+    }
+    return new Response(JSON.stringify({ success: true }), { headers })
   } catch (err) {
     return new Response(JSON.stringify({ error: err.message }), { status: 500, headers })
   }
