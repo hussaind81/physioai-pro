@@ -272,7 +272,8 @@ export default function PhysioSystem() {
   const [newPatient, setNewPatient] = useState({ name: '', phone: '', email: '', age: '', condition: '', diagnosis: '' })
   const [newAppt, setNewAppt] = useState({ patientId: '', date: '', time: '09:00', type: 'Clinic', is_recurring: false, recurring_days: [] })
   const [newExercise, setNewExercise] = useState({ name: '', condition: '', difficulty: 'Easy', sets: 3, reps: 10, description: '', youtube: '' })
-
+  const [editPatient, setEditPatient] = useState(null)
+  const [editExercise, setEditExercise] = useState(null)
   const today = new Date()
   const todayStr = today.toISOString().split('T')[0]
   const year = calendarDate.getFullYear()
@@ -353,6 +354,25 @@ export default function PhysioSystem() {
     if (!window.confirm('Delete this patient?')) return
     await api('/patients/' + id, 'DELETE')
     setPatients(patients.filter(p => p.id !== id))
+  }
+  async function saveEditPatient() {
+    if (!editPatient.name || !editPatient.phone) return alert('Name and phone required')
+    await api('/patients/' + editPatient.id, 'PUT', editPatient)
+    setPatients(patients.map(p => p.id === editPatient.id ? { ...editPatient, assignedExercises: p.assignedExercises } : p))
+    setEditPatient(null)
+  }
+
+  async function saveEditExercise() {
+    if (!editExercise.name) return alert('Exercise name required')
+    await api('/exercises/' + editExercise.id, 'PUT', editExercise)
+    setExercises(exercises.map(e => e.id === editExercise.id ? editExercise : e))
+    setEditExercise(null)
+  }
+
+  async function deleteExercise(id) {
+    if (!window.confirm('Delete this exercise?')) return
+    await api('/exercises/' + id, 'DELETE')
+    setExercises(exercises.filter(e => e.id !== id))
   }
 
   async function addAppointment() {
@@ -530,7 +550,60 @@ export default function PhysioSystem() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 flex">
+{/* Edit Patient Modal */}
+      {editPatient && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-gray-800">Edit Patient</h3>
+              <button onClick={() => setEditPatient(null)}><X size={20} className="text-gray-400" /></button>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {['name', 'phone', 'email', 'age', 'condition', 'diagnosis'].map(field => (
+                <input key={field} className="border border-gray-200 rounded-lg px-3 py-2 text-gray-800 outline-none focus:border-teal-400 capitalize"
+                  placeholder={field} value={editPatient[field] || ''}
+                  onChange={e => setEditPatient({ ...editPatient, [field]: e.target.value })} />
+              ))}
+            </div>
+            <button onClick={saveEditPatient} className="w-full bg-teal-500 hover:bg-teal-600 text-white py-2 rounded-lg font-semibold mt-4">
+              Save Changes
+            </button>
+          </div>
+        </div>
+      )}
 
+      {/* Edit Exercise Modal */}
+      {editExercise && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-gray-800">Edit Exercise</h3>
+              <button onClick={() => setEditExercise(null)}><X size={20} className="text-gray-400" /></button>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <input className="border border-gray-200 rounded-lg px-3 py-2 text-gray-800 outline-none focus:border-teal-400" placeholder="Exercise name"
+                value={editExercise.name} onChange={e => setEditExercise({ ...editExercise, name: e.target.value })} />
+              <input className="border border-gray-200 rounded-lg px-3 py-2 text-gray-800 outline-none focus:border-teal-400" placeholder="Condition"
+                value={editExercise.condition} onChange={e => setEditExercise({ ...editExercise, condition: e.target.value })} />
+              <input className="border border-gray-200 rounded-lg px-3 py-2 text-gray-800 outline-none focus:border-teal-400 col-span-2" placeholder="Description"
+                value={editExercise.description} onChange={e => setEditExercise({ ...editExercise, description: e.target.value })} />
+              <input className="border border-gray-200 rounded-lg px-3 py-2 text-gray-800 outline-none focus:border-teal-400 col-span-2" placeholder="YouTube URL"
+                value={editExercise.youtube || ''} onChange={e => setEditExercise({ ...editExercise, youtube: e.target.value })} />
+              <input type="number" className="border border-gray-200 rounded-lg px-3 py-2 text-gray-800 outline-none focus:border-teal-400" placeholder="Sets"
+                value={editExercise.sets} onChange={e => setEditExercise({ ...editExercise, sets: e.target.value })} />
+              <input type="number" className="border border-gray-200 rounded-lg px-3 py-2 text-gray-800 outline-none focus:border-teal-400" placeholder="Reps"
+                value={editExercise.reps} onChange={e => setEditExercise({ ...editExercise, reps: e.target.value })} />
+              <select className="border border-gray-200 rounded-lg px-3 py-2 text-gray-800 outline-none focus:border-teal-400 col-span-2"
+                value={editExercise.difficulty} onChange={e => setEditExercise({ ...editExercise, difficulty: e.target.value })}>
+                <option>Easy</option><option>Medium</option><option>Hard</option>
+              </select>
+            </div>
+            <button onClick={saveEditExercise} className="w-full bg-teal-500 hover:bg-teal-600 text-white py-2 rounded-lg font-semibold mt-4">
+              Save Changes
+            </button>
+          </div>
+        </div>
+      )}
       {/* Cancel Modal */}
       {cancelModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -709,6 +782,7 @@ export default function PhysioSystem() {
                     <div className="flex flex-col gap-2 ml-4">
                       <button onClick={() => shareExercisesWhatsApp(p)} className="text-xs bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg">WhatsApp</button>
                       <button onClick={() => exportPDF(p, appointments, exercises, schedules)} className="text-xs bg-teal-500 hover:bg-teal-600 text-white px-3 py-1 rounded-lg">Export PDF</button>
+                      <button onClick={() => setEditPatient({ ...p })} className="text-xs bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg">Edit</button>
                       <button onClick={() => setExpandedPatient(expandedPatient === p.id ? null : p.id)} className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-1 rounded-lg">
                         {expandedPatient === p.id ? 'Less' : 'More'}
                       </button>
@@ -956,9 +1030,11 @@ export default function PhysioSystem() {
                   </div>
                   <p className="text-teal-600 text-xs font-semibold mb-1">{ex.condition}</p>
                   <p className="text-gray-500 text-sm mb-2">{ex.description}</p>
-                  <div className="flex gap-3 text-xs">
+                  <div className="flex gap-3 text-xs mt-2 items-center">
                     <span className="bg-gray-50 px-2 py-1 rounded-lg text-gray-500">Sets: {ex.sets}</span>
-                    <span className="bg-gray-50 px-2 py-1 rounded-lg text-gray-500">Reps: {ex.reps}</span>
+                     <span className="bg-gray-50 px-2 py-1 rounded-lg text-gray-500">Reps: {ex.reps}</span>
+                     <button onClick={() => setEditExercise({ ...ex })} className="ml-auto bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded-lg">Edit</button>
+                     <button onClick={() => deleteExercise(ex.id)} className="bg-red-50 hover:bg-red-100 text-red-500 px-2 py-1 rounded-lg"><Trash2 size={12} /></button>
                   </div>
                   {ex.youtube && <iframe className="mt-3 w-full rounded-lg" height="150" src={ex.youtube} allowFullScreen />}
                 </div>
